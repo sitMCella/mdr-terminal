@@ -7,6 +7,9 @@ The behavior is modeled on [andrewchilicki/LumonMDR](https://github.com/andrewch
 Raspberry Pi. This version is written from scratch in React, TypeScript and Canvas 2D. See
 [`docs/design.md`](docs/design.md) for the analysis and architecture.
 
+**Try it online:** [sitmcella.github.io/mdr-terminal](https://sitmcella.github.io/mdr-terminal/). The GitHub Pages site
+always runs the latest release.
+
 > Unofficial fan project. Not affiliated with or endorsed by Apple TV+. The logo in `public/logo.svg` is an original
 > placeholder.
 
@@ -65,6 +68,9 @@ The release notes come from the changelog section, and the release includes thes
 
 - `mdr-terminal-<version>.tar.gz` and `mdr-terminal-<version>.zip`: the static build, ready to host
 - `SHA256SUMS.txt`: checksums of both packages
+
+After the release is published, the Pages workflow (`.github/workflows/pages.yml`) deploys it to
+[GitHub Pages](https://sitmcella.github.io/mdr-terminal/).
 
 Every push to `main` and every pull request also uploads the same packages as a workflow artifact, so you can download a
 build without making a release.
