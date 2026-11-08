@@ -38,6 +38,37 @@ npm run lint                        # oxlint
 npm run typecheck                   # tsc
 ```
 
+### Creating a release
+
+Releases are built and published by the CI workflow (`.github/workflows/ci.yml`) when a version tag is pushed.
+
+1. Pick the new version following [Semantic Versioning](https://semver.org/), for example `0.2.0`.
+2. Update the version in `package.json` and `package-lock.json`:
+
+   ```sh
+   npm version 0.2.0 --no-git-tag-version
+   ```
+
+3. In [`CHANGELOG.md`](CHANGELOG.md), move the entries under `## [Unreleased]` into a new `## [0.2.0] - YYYY-MM-DD`
+   section and update the comparison links at the bottom of the file.
+4. Commit the changes and merge them into `main`.
+5. Tag the commit on `main` and push the tag:
+
+   ```sh
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+The workflow then runs all checks and builds the app. It fails if the tag does not match the `package.json` version or if
+`CHANGELOG.md` has no section for that version. If everything passes, it publishes a GitHub Release named after the tag.
+The release notes come from the changelog section, and the release includes these files:
+
+- `mdr-terminal-<version>.tar.gz` and `mdr-terminal-<version>.zip`: the static build, ready to host
+- `SHA256SUMS.txt`: checksums of both packages
+
+Every push to `main` and every pull request also uploads the same packages as a workflow artifact, so you can download a
+build without making a release.
+
 ## How to use it
 
 ### Refining numbers
