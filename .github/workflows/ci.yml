@@ -3,7 +3,11 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*.*.*']
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   check:
@@ -27,3 +31,85 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 7
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Resolve version
+        id: version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - run: npm run build
+
+      - name: Package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          name="mdr-terminal-$VERSION"
+          mkdir -p release
+          cp -r dist "release/$name"
+          cp LICENSE README.md CHANGELOG.md "release/$name/"
+          cd release
+          tar -czf "$name.tar.gz" "$name"
+          zip -qr "$name.zip" "$name"
+          sha256sum "$name.tar.gz" "$name.zip" > SHA256SUMS.txt
+          rm -rf "$name"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mdr-terminal-${{ steps.version.outputs.version }}
+          path: release/
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mdr-terminal-${{ needs.build.outputs.version }}
+          path: release
+
+      - name: Extract release notes
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && (/^## \[/ || /^\[[^]]+\]: /) { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [[ ! -s release-notes.md ]]; then
+            echo "::error::No CHANGELOG.md entry for version $VERSION"
+            exit 1
+          fi
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --title "MDR Terminal $GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --verify-tag
