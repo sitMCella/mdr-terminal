@@ -1,0 +1,90 @@
+name: GitHub Pages
+
+# Deploys the static build attached to the latest published GitHub release.
+#
+# Releases created by the CI workflow use GITHUB_TOKEN, which does not trigger
+# `release` events in other workflows. `workflow_run` is the exception, so the
+# deployment also listens for successful CI runs on version tags.
+on:
+  release:
+    types: [published]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Resolve latest release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          if [[ -z "$tag" ]]; then
+            echo "::error::No published release found"
+            exit 1
+          fi
+          echo "Latest release: $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          mkdir -p release
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir release \
+            --pattern "mdr-terminal-$VERSION.tar.gz" \
+            --pattern SHA256SUMS.txt
+
+      - name: Verify checksum
+        working-directory: release
+        run: sha256sum --check --ignore-missing SHA256SUMS.txt
+
+      - name: Extract build
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          mkdir -p site
+          tar -xzf "release/mdr-terminal-$VERSION.tar.gz" -C site --strip-components=1
+          test -f site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy ${{ needs.build.outputs.tag }}
+        id: deployment
+        uses: actions/deploy-pages@v4
