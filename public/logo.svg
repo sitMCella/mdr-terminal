@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 232 100" width="232" height="100">
+  <!-- Original placeholder mark for the MDR Terminal fan project (not the Lumon logo). -->
+  <g fill="none" stroke="#9DE3EB" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="10" y="10" width="212" height="80" rx="40" ry="40"/>
+    <polyline points="46,70 46,30 66,52 86,30 86,70"/>
+    <path d="M106 30 V70 H118 A20 20 0 0 0 118 30 Z"/>
+    <path d="M156 70 V30 H172 A10 10 0 0 1 172 50 H156 M168 50 L184 70"/>
+  </g>
+</svg>
